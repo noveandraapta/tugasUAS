@@ -1,0 +1,211 @@
+import pygame
+import random
+
+# Inisialisasi Pygame
+pygame.init()
+
+# Inisialisasi mixer untuk suara
+pygame.mixer.init()
+
+# Memuat file suara
+paddle_hit_sound = pygame.mixer.Sound("paddle_hit.mp3")  # Suara untuk paddle
+brick_hit_sound = pygame.mixer.Sound("brick_hit.mp3")    # Suara untuk brick
+
+# Definisi ukuran layar dan warna
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+
+# Membuat layar
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Breakout Game")
+
+# Kecepatan permainan
+clock = pygame.time.Clock()
+FPS = 60
+
+# Kelas untuk Paddle
+class Paddle:
+    def __init__(self):
+        self.width = 100
+        self.height = 20
+        self.x = SCREEN_WIDTH // 2 - self.width // 2
+        self.y = SCREEN_HEIGHT - self.height - 30
+        self.speed = 10
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.color = BLUE
+
+    def move(self, direction):
+        if direction == "left" and self.rect.x > 0:
+            self.rect.x -= self.speed
+        if direction == "right" and self.rect.x < SCREEN_WIDTH - self.width:
+            self.rect.x += self.speed
+
+    def draw(self):
+        pygame.draw.rect(screen, self.color, self.rect)
+
+# Kelas untuk Bola
+class Ball:
+    def __init__(self):
+        self.radius = 10
+        self.x = SCREEN_WIDTH // 2
+        self.y = SCREEN_HEIGHT - 50
+        self.speed_x = 4 * random.choice([1, -1])  # Bola bergerak acak ke kiri atau kanan
+        self.speed_y = -4  # Bola bergerak ke atas
+        self.color = RED
+        self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
+
+    def move(self):
+        self.x += self.speed_x
+        self.y += self.speed_y
+        self.rect.x = self.x - self.radius
+        self.rect.y = self.y - self.radius
+
+    def draw(self):
+        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
+
+    def reset_position(self):
+        self.x = SCREEN_WIDTH // 2
+        self.y = SCREEN_HEIGHT - 50
+        self.speed_x = 4 * random.choice([1, -1])
+        self.speed_y = -4
+
+# Kelas untuk Brick (Balok)
+class Brick:
+    def __init__(self, x, y):
+        self.width = 60
+        self.height = 20
+        self.x = x
+        self.y = y
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.color = GREEN
+
+    def draw(self):
+        pygame.draw.rect(screen, self.color, self.rect)
+
+# Fungsi untuk menampilkan skor
+def draw_score(score, lives):
+    font = pygame.font.SysFont("arial", 30)
+    score_text = font.render(f"Score: {score}", True, WHITE)
+    lives_text = font.render(f"Lives: {lives}", True, WHITE)
+    screen.blit(score_text, (10, 10))
+    screen.blit(lives_text, (SCREEN_WIDTH - 150, 10))
+
+# Fungsi untuk menampilkan pesan Game Over
+def draw_game_over():
+    font = pygame.font.SysFont("arial", 50)
+    game_over_text = font.render("GAME OVER", True, RED)
+    screen.blit(game_over_text, (SCREEN_WIDTH // 2 - game_over_text.get_width() // 2, SCREEN_HEIGHT // 2))
+
+# Fungsi untuk menampilkan pesan kemenangan
+def draw_win():
+    font = pygame.font.SysFont("arial", 50)
+    win_text = font.render("YOU WIN!", True, WHITE)  # Menggunakan warna putih
+    screen.blit(win_text, (SCREEN_WIDTH // 2 - win_text.get_width() // 2, SCREEN_HEIGHT // 2))
+
+# Fungsi utama permainan
+def main():
+    paddle = Paddle()
+    ball = Ball()
+
+    # Membuat balok-balok
+    bricks = []
+    brick_width = 60
+    brick_height = 20
+    gap = 10  # Jarak antar balok
+
+    for row in range(6):  # Menambahkan 6 baris
+        for col in range(12):  # Menambahkan 12 kolom
+            brick_x = col * (brick_width + gap) + 40  # Posisi horizontal balok
+            brick_y = row * (brick_height + gap) + 50  # Posisi vertikal balok
+            bricks.append(Brick(brick_x, brick_y))
+
+    score = 0
+    lives = 3  # Jumlah hidup awal
+    game_running = True
+
+    while game_running:
+        screen.fill(BLACK)
+
+        # Event handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_running = False
+
+        # Input pemain
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            paddle.move("left")
+        if keys[pygame.K_RIGHT]:
+            paddle.move("right")
+
+        # Gerakan bola
+        ball.move()
+
+        # Pengecekan tabrakan dengan dinding
+        if ball.rect.x <= 0 or ball.rect.x >= SCREEN_WIDTH - ball.radius * 2:
+            ball.speed_x = -ball.speed_x
+
+        if ball.rect.y <= 0:
+            ball.speed_y = -ball.speed_y
+
+        if ball.rect.y >= SCREEN_HEIGHT - ball.radius * 2:
+            lives -= 1  # Mengurangi nyawa saat bola jatuh
+            ball.reset_position()  # Reset posisi bola
+
+        # Jika pemain kehabisan nyawa, tampilkan Game Over
+        if lives <= 0:
+            draw_game_over()
+            pygame.display.update()
+            pygame.time.wait(2000)
+            break
+
+        # Pengecekan tabrakan bola dengan paddle
+        if ball.rect.colliderect(paddle.rect):
+            ball.speed_y = -ball.speed_y
+            ball.y = paddle.rect.top - ball.radius * 2  # Letakkan bola di atas paddle
+            paddle_hit_sound.play()  # Mainkan suara saat bola mengenai paddle
+
+        # Pengecekan tabrakan bola dengan balok
+        for brick in bricks[:]:
+            if ball.rect.colliderect(brick.rect):
+                if abs(ball.rect.bottom - brick.rect.top) < 10 or abs(ball.rect.top - brick.rect.bottom) < 10:
+                    ball.speed_y = -ball.speed_y
+                else:
+                    ball.speed_x = -ball.speed_x
+                bricks.remove(brick)
+                score += 10
+                brick_hit_sound.play()  # Mainkan suara saat bola mengenai brick
+
+        # Jika skor mencapai 660, tampilkan pesan kemenangan dan akhiri permainan
+        if score >= 660:  # Jika skor mencapai 660
+            draw_win()
+            pygame.display.update()
+            pygame.time.wait(2000)  # Menunggu 2 detik sebelum keluar dari game
+            game_running = False  # Hentikan permainan setelah menang
+
+        # Gambar paddle, bola, dan balok
+        paddle.draw()
+        ball.draw()
+
+        for brick in bricks:
+            brick.draw()
+
+        # Tampilkan skor dan nyawa
+        draw_score(score, lives)
+
+        # Memperbarui layar
+        pygame.display.update()
+
+        # Mengatur frame rate
+        clock.tick(FPS)
+
+    pygame.quit()
+
+# Menjalankan permainan
+if __name__ == "__main__":
+    main()
